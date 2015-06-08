@@ -6,7 +6,7 @@ TEXTDOMAIN=virtualhost
 action=$1
 hostname=$2
 rootDir=$3
-owner=$(who am i | awk '{print $1}')
+owner=$(whoami)
 email='webmaster@localhost'
 sitesEnable='/etc/apache2/sites-enabled/'
 sitesAvailable='/etc/apache2/sites-available/'
@@ -15,7 +15,7 @@ conf=$sitesAvailable$hostname.conf
 
 ### don't modify from here unless you know what you are doing ####
 
-if [ "$(whoami)" != 'root' ]; then
+if [ "$owner" != 'root' ]; then
 	echo $"=> ERROR: Must run $0 as root. Use sudo. Exiting..."
 		exit 1;
 fi
@@ -100,11 +100,7 @@ if [ "$action" == 'create' ]
 			echo -e $"=> OK: Host added to /etc/hosts file \n"
 		fi
 
-		if [ "$owner" == "" ]; then
-			chown -R $(whoami):$(whoami) $rootDir
-		else
-			chown -R $owner:$owner $rootDir
-		fi
+		chown -R $owner:$owner $rootDir
 
 		### enable website
 		a2ensite $hostname
