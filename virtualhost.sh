@@ -11,7 +11,7 @@ email='webmaster@localhost'
 sitesEnable='/etc/apache2/sites-enabled/'
 sitesAvailable='/etc/apache2/sites-available/'
 userDir='/var/www/'
-sitesAvailablehostname=$sitesAvailable$hostname.conf
+conf=$sitesAvailable$hostname.conf
 
 ### don't modify from here unless you know what you are doing ####
 
@@ -46,7 +46,7 @@ rootDir=$userDir$rootDir
 if [ "$action" == 'create' ]
 	then
 		### check if hostname already exists
-		if [ -e $sitesAvailablehostname ]; then
+		if [ -e $conf ]; then
 			echo -e $"=> ERROR: This hostname already exists. Exiting..."
 			exit;
 		fi
@@ -85,7 +85,7 @@ if [ "$action" == 'create' ]
 			ErrorLog /var/log/apache2/$hostname-error.log
 			LogLevel error
 			CustomLog /var/log/apache2/$hostname-access.log combined
-		</VirtualHost>" > $sitesAvailablehostname
+		</VirtualHost>" > $conf
 		then
 			echo -e $"=> ERROR: Can't create $hostname.conf"
 			exit;
@@ -119,7 +119,7 @@ if [ "$action" == 'create' ]
 		exit;
 	else
 		### check whether hostname already exists
-		if ! [ -e $sitesAvailablehostname ]; then
+		if ! [ -e $conf ]; then
 			echo -e $"=> ERROR: Can't remove. This hostname does not exist."
 			exit;
 		else
@@ -134,7 +134,7 @@ if [ "$action" == 'create' ]
 			/etc/init.d/apache2 reload
 
 			### Delete virtual host rules files
-			rm $sitesAvailablehostname
+			rm $conf
 		fi
 
 		### check if directory exists or not
