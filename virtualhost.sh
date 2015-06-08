@@ -4,36 +4,36 @@ TEXTDOMAIN=virtualhost
 
 ### Set default parameters
 action=$1
-domain=$2
+hostname=$2
 rootDir=$3
 owner=$(who am i | awk '{print $1}')
 email='webmaster@localhost'
 sitesEnable='/etc/apache2/sites-enabled/'
 sitesAvailable='/etc/apache2/sites-available/'
 userDir='/var/www/'
-sitesAvailabledomain=$sitesAvailable$domain.conf
+sitesAvailablehostname=$sitesAvailable$hostname.conf
 
 ### don't modify from here unless you know what you are doing ####
 
 if [ "$(whoami)" != 'root' ]; then
-	echo $"You have no permission to run $0 as non-root user. Use sudo"
+	echo $"=> ERROR: Must run $0 as root. Use sudo. Exiting..."
 		exit 1;
 fi
 
 if [ "$action" != 'create' ] && [ "$action" != 'delete' ]
 	then
-		echo $"You need to prompt for action (create or delete) -- Lower-case only"
+		echo $"=> MISSING ARG: You must specify an action ('create' or 'delete') as the first argument. Exiting..."
 		exit 1;
 fi
 
-while [ "$domain" == "" ]
+while [ "$hostname" == "" ]
 do
-	echo -e $"Please provide domain. e.g.dev,staging"
-	read domain
+	echo -e $"=> MISSING ARG: No hostname provided. Enter a hostname:"
+	read hostname
 done
 
 if [ "$rootDir" == "" ]; then
-	rootdir=${domain//./}
+	rootdir=${hostname//./}
 fi
 
 ### if root dir starts with '/', don't use /var/www as default starting point
@@ -45,9 +45,9 @@ rootDir=$userDir$rootDir
 
 if [ "$action" == 'create' ]
 	then
-		### check if domain already exists
-		if [ -e $sitesAvailabledomain ]; then
-			echo -e $"This domain already exists.\nPlease Try Another one"
+		### check if hostname already exists
+		if [ -e $sitesAvailablehostname ]; then
+			echo -e $"=> ERROR: This hostname already exists. Exiting..."
 			exit;
 		fi
 
@@ -57,13 +57,13 @@ if [ "$action" == 'create' ]
 			mkdir $rootDir
 			### give permission to root dir
 			chmod 755 $rootDir
-			### write test file in the new domain dir
+			### write test file in the new hostname dir
 			if ! echo "<?php echo phpinfo(); ?>" > $rootDir/phpinfo.php
 			then
-				echo $"ERROR: Not able to write in file $userDir/$rootdir/phpinfo.php. Please check permissions"
+				echo $"=> ERROR: Not able to write phpinfo.php to $userDir/$rootdir/. Please check permissions!"
 				exit;
 			else
-				echo $"Added content to $rootDir/phpinfo.php"
+				echo $"=> CREATED: $rootDir/phpinfo.php"
 			fi
 		fi
 
@@ -71,8 +71,8 @@ if [ "$action" == 'create' ]
 		if ! echo "
 		<VirtualHost *:80>
 			ServerAdmin $email
-			ServerName $domain
-			ServerAlias $domain
+			ServerName $hostname
+			ServerAlias $hostname
 			DocumentRoot $rootDir
 			<Directory />
 				AllowOverride All
@@ -82,24 +82,22 @@ if [ "$action" == 'create' ]
 				AllowOverride all
 				Require all granted
 			</Directory>
-			ErrorLog /var/log/apache2/$domain-error.log
+			ErrorLog /var/log/apache2/$hostname-error.log
 			LogLevel error
-			CustomLog /var/log/apache2/$domain-access.log combined
-		</VirtualHost>" > $sitesAvailabledomain
+			CustomLog /var/log/apache2/$hostname-access.log combined
+		</VirtualHost>" > $sitesAvailablehostname
 		then
-			echo -e $"There is an ERROR creating $domain file"
+			echo -e $"=> ERROR: Can't create $hostname.conf"
 			exit;
-		else
-			echo -e $"\nNew Virtual Host Created\n"
 		fi
 
-		### Add domain in /etc/hosts
-		if ! echo "127.0.0.1	$domain" >> /etc/hosts
+		### Add hostname in /etc/hosts
+		if ! echo "127.0.0.1	$hostname" >> /etc/hosts
 		then
-			echo $"ERROR: Not able to write in /etc/hosts"
+			echo $"=> ERROR: Not able to write to /etc/hosts"
 			exit;
 		else
-			echo -e $"Host added to /etc/hosts file \n"
+			echo -e $"=> OK: Host added to /etc/hosts file \n"
 		fi
 
 		if [ "$owner" == "" ]; then
@@ -109,51 +107,53 @@ if [ "$action" == 'create' ]
 		fi
 
 		### enable website
-		a2ensite $domain
+		a2ensite $hostname
 
 		### restart Apache
 		/etc/init.d/apache2 reload
 
 		### show the finished message
-		echo -e $"Complete! \nYou now have a new Virtual Host \nYour new host is: http://$domain \nAnd its located at $rootDir"
+		echo -e $"=> OK: Virtual host created!"
+    echo -e $"       URL: http://$hostname"
+    echo -e $"       Document Root: $rootDir"
 		exit;
 	else
-		### check whether domain already exists
-		if ! [ -e $sitesAvailabledomain ]; then
-			echo -e $"This domain does not exist.\nPlease try another one"
+		### check whether hostname already exists
+		if ! [ -e $sitesAvailablehostname ]; then
+			echo -e $"=> ERROR: Can't remove. This hostname does not exist."
 			exit;
 		else
-			### Delete domain in /etc/hosts
-			newhost=${domain//./\\.}
+			### Delete hostname in /etc/hosts
+			newhost=${hostname//./\\.}
 			sed -i "/$newhost/d" /etc/hosts
 
 			### disable website
-			a2dissite $domain
+			a2dissite $hostname
 
 			### restart Apache
 			/etc/init.d/apache2 reload
 
 			### Delete virtual host rules files
-			rm $sitesAvailabledomain
+			rm $sitesAvailablehostname
 		fi
 
 		### check if directory exists or not
 		if [ -d $rootDir ]; then
-			echo -e $"Delete host root directory ? (y/n)"
+			echo -e $"=> CONFIRM: Delete host root directory ? (y/n)"
 			read deldir
 
 			if [ "$deldir" == 'y' -o "$deldir" == 'Y' ]; then
 				### Delete the directory
 				rm -rf $rootDir
-				echo -e $"Directory deleted"
+				echo -e $"=> OK: Directory deleted"
 			else
-				echo -e $"Host directory conserved"
+				echo -e $"=> OK: Host directory left alone."
 			fi
 		else
-			echo -e $"Host directory not found. Ignored"
+			echo -e $"=> OK: Host directory not found. Exiting..."
 		fi
 
 		### show the finished message
-		echo -e $"Complete!\nYou just removed Virtual Host $domain"
+		echo -e $"=> REMOVED: $hostname"
 		exit 0;
 fi
